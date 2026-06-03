@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
+
+  body {
+    background: transparent;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  #chat-container {
+    width: 100%;
+    height: 100vh;
+    max-width: 480px;
+    background: white;
+    border-radius: 12px;
+    border: 1px solid #dce3f0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+  }
+
+  /* ── HEADER ── */
+  #chat-header {
+    background: linear-gradient(135deg, #00843D, #005C29);
+    color: white;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+  #chat-header .title { font-size: 15px; font-weight: 600; }
+  #chat-header .subtitle { font-size: 11px; opacity: 0.75; }
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #4cff91;
+    margin-left: auto;
+    box-shadow: 0 0 6px #4cff91;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  /* ── MESSAGES ── */
+  #messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    background: #f8faff;
+  }
+
+  .message {
+    max-width: 88%;
+    padding: 10px 14px;
+    border-radius: 14px;
+    font-size: 13.5px;
+    line-height: 1.55;
+    word-break: break-word;
+  }
+
+  .user-msg {
+    align-self: flex-end;
+    background: #00843D;
+    color: white;
+    border-bottom-right-radius: 4px;
+  }
+
+  .bot-msg {
+    align-self: flex-start;
+    background: white;
+    color: #1a1a2e;
+    border: 1px solid #d0ead8;
+    border-bottom-left-radius: 4px;
+    box-shadow: 0 1px 4px rgba(0,0,80,0.06);
+  }
+
+  /* ── TABLEAU DE RÉSULTATS ── */
+  .result-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    margin-top: 8px;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .result-table th {
+    background: #00843D;
+    color: white;
+    padding: 6px 10px;
+    text-align: left;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .result-table td {
+    padding: 5px 10px;
+    border-bottom: 1px solid #eef1ff;
+  }
+  .result-table tr:nth-child(even) td { background: #f5f7ff; }
+  .result-table tr:last-child td { border-bottom: none; }
+  .more-rows {
+    font-size: 11px;
+    color: #666;
+    margin-top: 4px;
+    font-style: italic;
+  }
+
+  /* ── BLOC SQL ── */
+  .sql-block {
+    background: #0d1117;
+    color: #79c0ff;
+    padding: 10px 12px;
+    border-radius: 6px;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 11.5px;
+    margin-top: 10px;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    border-left: 3px solid #00843D;
+  }
+  .sql-label {
+    font-size: 10px;
+    color: #58a6ff;
+    margin-bottom: 4px;
+    display: block;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+  }
+
+  /* ── RÉSULTAT SIMPLE ── */
+  .result-simple {
+    font-size: 22px;
+    font-weight: 700;
+    color: #00843D;
+    margin: 4px 0;
+  }
+  .result-label { font-size: 12px; color: #666; }
+
+  /* ── LOADING ── */
+  .loading-dots { display: flex; gap: 4px; padding: 4px 0; }
+  .loading-dots span {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: #00843D;
+    animation: bounce 1.2s infinite;
+  }
+  .loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes bounce { 0%,80%,100%{transform:scale(0.7);opacity:0.5} 40%{transform:scale(1);opacity:1} }
+
+  /* ── SUGGESTIONS ── */
+  .suggestions {
+    padding: 8px 16px 4px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    flex-shrink: 0;
+    background: #f8faff;
+    border-top: 1px solid #e8eeff;
+  }
+  .suggestion-btn {
+    background: white;
+    border: 1px solid #c0d0ff;
+    border-radius: 20px;
+    padding: 4px 10px;
+    font-size: 11.5px;
+    color: #00843D;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .suggestion-btn:hover { background: #00843D; color: white; border-color: #00843D; }
+
+  /* ── INPUT ── */
+  #input-area {
+    display: flex;
+    padding: 10px 12px;
+    border-top: 1px solid #d0ead8;
+    gap: 8px;
+    background: white;
+    flex-shrink: 0;
+  }
+  #prompt-input {
+    flex: 1;
+    padding: 9px 14px;
+    border: 1.5px solid #d0dcf0;
+    border-radius: 20px;
+    font-size: 13.5px;
+    outline: none;
+    transition: border-color 0.2s;
+    background: #f8faff;
+  }
+  #prompt-input:focus { border-color: #00843D; background: white; }
+  #send-btn {
+    background: #00843D;
+    color: white;
+    border: none;
+    border-radius: 20px;
+    padding: 9px 18px;
+    cursor: pointer;
+    font-size: 13.5px;
+    font-weight: 600;
+    transition: background 0.2s;
+    flex-shrink: 0;
+  }
+  #send-btn:hover { background: #005C29; }
+  #send-btn:disabled { background: #aab8d8; cursor: not-allowed; }
+
+  /* ── ERREUR ── */
+  .error-msg { color: #c0392b; }
+</style>
+</head>
+<body>
+<div id="chat-container">
+
+  <!-- HEADER -->
+  <div id="chat-header">
+    <div>
+      <div class="title">Assistant Analytique</div>
+      <div class="subtitle">Amen Bank — Monétique</div>
+    </div>
+    <div class="status-dot" title="Connecté"></div>
+  </div>
+
+  <!-- MESSAGES -->
+  <div id="messages">
+    <div class="message bot-msg">
+      Bonjour ! Posez votre question en français et j'interroge la base de données pour vous.<br><br>
+      <em>Exemples : "Combien de cartes actives ?" · "Total des transactions ce mois ?" · "Retraits DAB par agence cette année ?"</em>
+    </div>
+  </div>
+
+  <!-- SUGGESTIONS RAPIDES -->
+  <div class="suggestions">
+    <button class="suggestion-btn" onclick="askSuggestion(this)">Cartes actives</button>
+    <button class="suggestion-btn" onclick="askSuggestion(this)">Transactions approuvées ce mois</button>
+    <button class="suggestion-btn" onclick="askSuggestion(this)">Retraits DAB par agence</button>
+    <button class="suggestion-btn" onclick="askSuggestion(this)">Transactions e-commerce</button>
+  </div>
+
+  <!-- INPUT -->
+  <div id="input-area">
+    <input id="prompt-input" type="text" placeholder="Posez votre question...">
+    <button id="send-btn" onclick="sendMessage()">Envoyer</button>
+  </div>
+
+</div>
+
+<script>
+  // ============================================================
+  //  ⚠️ REMPLACEZ PAR VOTRE VRAIE URL NGROK + /api/chat
+  //  Exemple : 'https://rewire-parsley-filled.ngrok-free.app/api/chat'   
+  // ============================================================
+  const BACKEND_URL = 'http://localhost:3000/api/chat';
+
+  // Échapper le HTML pour éviter les injections XSS
+  function escapeHtml(text) {
+    return String(text)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  // Ajouter un message dans la conversation
+  function addMessage(html, isUser = false) {
+    const messages = document.getElementById('messages');
+    const div = document.createElement('div');
+    div.className = 'message ' + (isUser ? 'user-msg' : 'bot-msg');
+    div.innerHTML = html;
+    messages.appendChild(div);
+    messages.scrollTop = messages.scrollHeight;
+    return div;
+  }
+
+  // Formater les données en tableau HTML ou résultat simple
+  function formatData(data, nombreLignes) {
+    if (!data || data.length === 0) {
+      return '<em>Aucun résultat trouvé.</em>';
+    }
+
+    const keys = Object.keys(data[0]);
+
+    // Résultat simple : 1 ligne, 1 colonne → affichage grand nombre
+    if (data.length === 1 && keys.length === 1) {
+      const val = data[0][keys[0]];
+      const label = keys[0].replace(/_/g, ' ');
+      return `
+        <div class="result-label">${escapeHtml(label)}</div>
+        <div class="result-simple">${escapeHtml(String(val))}</div>`;
+    }
+
+    // Résultat tabulaire
+    const maxRows = 10;
+    const rowsToShow = data.slice(0, maxRows);
+    let html = '<table class="result-table"><thead><tr>';
+    keys.forEach(k => { html += `<th>${escapeHtml(k.replace(/_/g, ' '))}</th>`; });
+    html += '</tr></thead><tbody>';
+    rowsToShow.forEach(row => {
+      html += '<tr>';
+      keys.forEach(k => {
+        const val = row[k] !== null && row[k] !== undefined ? row[k] : '—';
+        html += `<td>${escapeHtml(String(val))}</td>`;
+      });
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+
+    if (nombreLignes > maxRows) {
+      html += `<div class="more-rows">Affichage de ${maxRows} sur ${nombreLignes} résultats.</div>`;
+    } else {
+      html += `<div class="more-rows">${nombreLignes} résultat(s) trouvé(s).</div>`;
+    }
+    return html;
+  }
+
+  // Envoi du message principal
+  async function sendMessage() {
+    const input  = document.getElementById('prompt-input');
+    const btn    = document.getElementById('send-btn');
+    const prompt = input.value.trim();
+    if (!prompt) return;
+
+    // Afficher le message utilisateur
+    addMessage(escapeHtml(prompt), true);
+    input.value = '';
+    btn.disabled = true;
+
+    // Afficher l'animation de chargement
+    const loadingDiv = addMessage(`
+      <div style="font-size:12px;color:#666;margin-bottom:4px;">Analyse en cours...</div>
+      <div class="loading-dots"><span></span><span></span><span></span></div>
+    `);
+
+    try {
+      const response = await fetch(BACKEND_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': '1'   // ← obligatoire avec ngrok
+        },
+        body: JSON.stringify({ prompt })
+      });
+
+      loadingDiv.remove();
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ erreur: 'Erreur réseau' }));
+        addMessage(`<span class="error-msg">❌ ${escapeHtml(err.erreur || 'Erreur inconnue')}</span>`);
+        return;
+      }
+
+      const data = await response.json();
+
+      if (!data.succes) {
+        addMessage(`<span class="error-msg">❌ ${escapeHtml(data.erreur || 'Erreur inconnue')}</span>`);
+        return;
+      }
+
+      // Afficher résultat + SQL généré
+      const resultHtml = formatData(data.data, data.nombreLignes);
+      addMessage(`
+        ${resultHtml}
+        <div class="sql-block">
+          <span class="sql-label">📊 REQUÊTE SQL GÉNÉRÉE</span>${escapeHtml(data.sql)}
+        </div>
+      `);
+
+    } catch (err) {
+      loadingDiv.remove();
+      addMessage(`<span class="error-msg">❌ Impossible de joindre le serveur.<br><small>${escapeHtml(err.message)}</small></span>`);
+    }
+
+    btn.disabled = false;
+    input.focus();
+  }
+
+  // Clic sur une suggestion rapide
+  function askSuggestion(btn) {
+    document.getElementById('prompt-input').value = btn.textContent;
+    sendMessage();
+  }
+
+  // Envoyer avec la touche Entrée
+  document.getElementById('prompt-input').addEventListener('keypress', e => {
+    if (e.key === 'Enter') sendMessage();
+  });
+</script>
+</body>
+</html>

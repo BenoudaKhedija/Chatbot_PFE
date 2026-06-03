@@ -1,0 +1,39 @@
+# ============================================================
+#  .gitignore — Chatbot Bancaire PFE
+# ============================================================
+
+# ── SECRETS (NE JAMAIS PUBLIER) ──────────────────────────────
+.env
+.env.local
+.env.production
+*.key
+*.pem
+
+# ── NODE.JS ──────────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+
+# ── LOGS ─────────────────────────────────────────────────────
+logs/
+*.log
+
+# ── SYSTÈME ──────────────────────────────────────────────────
+# Windows
+Thumbs.db
+Desktop.ini
+
+# macOS
+.DS_Store
+
+# ── ÉDITEURS ─────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── NGROK ────────────────────────────────────────────────────
+ngrok.exe
+ngrok
