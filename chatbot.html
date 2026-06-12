@@ -138,6 +138,30 @@
     letter-spacing: 0.5px;
   }
 
+
+
+/* ── QUESTIONS SUGGÉRÉES ── */
+  .question-suggestion {
+    padding: 8px 10px;
+    margin: 4px 0;
+    border-radius: 8px;
+    border: 1px solid #d0ead8;
+    cursor: pointer;
+    font-size: 13px;
+    line-height: 1.4;
+    transition: all 0.2s;
+    background: #f8fff8;
+  }
+  .question-suggestion:hover {
+    background: #00843D;
+    color: white;
+    border-color: #00843D;
+  }
+  .question-suggestion:hover span { color: white !important; }
+
+
+
+
   /* ── RÉSULTAT SIMPLE ── */
   .result-simple {
     font-size: 22px;
@@ -219,6 +243,67 @@
 
   /* ── ERREUR ── */
   .error-msg { color: #c0392b; }
+
+
+/* ── BANNIÈRE ALERTES ── */
+  #alerte-banner {
+    display: none;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 14px;
+    flex-shrink: 0;
+    border-bottom: 1px solid #e0e0e0;
+    font-size: 12.5px;
+    animation: slideDown 0.3s ease;
+  }
+  @keyframes slideDown { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }
+ 
+  #alerte-banner.critique { background: #fff0f0; border-left: 4px solid #c0392b; }
+  #alerte-banner.warning  { background: #fff8ee; border-left: 4px solid #e67e22; }
+  #alerte-banner.ok       { background: #f0fff5; border-left: 4px solid #00843D; }
+ 
+#alerte-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 600;
+    font-size: 13px;
+    flex-shrink: 0;
+  }
+  #alerte-header span { cursor: pointer; font-size: 11px; color: #888; font-weight: 400; }
+  #alerte-scroll {
+    overflow-y: auto;
+    max-height: 110px;
+    margin-top: 4px;
+    padding-right: 4px;
+    scrollbar-width: thin;
+    scrollbar-color: #c0c0c0 transparent;
+  }
+  #alerte-scroll::-webkit-scrollbar { width: 4px; }
+  #alerte-scroll::-webkit-scrollbar-track { background: transparent; }
+  #alerte-scroll::-webkit-scrollbar-thumb { background: #c0c0c0; border-radius: 4px; }
+  #alerte-scroll::-webkit-scrollbar-thumb:hover { background: #999; }
+ 
+  .alerte-ligne {
+    display: flex;
+    gap: 6px;
+    padding: 4px 0;
+    border-top: 1px solid rgba(0,0,0,0.05);
+    line-height: 1.4;
+  }
+  .alerte-ligne:first-child { border-top: none; }
+  .alerte-ligne .detail { color: #555; font-size: 11.5px; }
+ 
+  #alerte-footer {
+    font-size: 10.5px;
+    color: #999;
+    margin-top: 4px;
+    flex-shrink: 0;
+    border-top: 1px solid rgba(0,0,0,0.05);
+    padding-top: 4px;
+  }
+
+
 </style>
 </head>
 <body>
@@ -233,20 +318,33 @@
     <div class="status-dot" title="Connecté"></div>
   </div>
 
+
+<!-- BANNIÈRE ALERTES AUTOMATIQUE -->
+  <div id="alerte-banner">
+    <div id="alerte-header">
+      <span id="alerte-titre">Chargement des alertes...</span>
+      <span onclick="toggleAlertes()">▲ Réduire</span>
+    </div>
+    <div id="alerte-scroll">
+      <div id="alerte-liste"></div>
+    </div>
+    <div id="alerte-footer"></div>
+  </div>
+
+
   <!-- MESSAGES -->
   <div id="messages">
     <div class="message bot-msg">
-      Bonjour ! Posez votre question en français et j'interroge la base de données pour vous.<br><br>
-      <em>Exemples : "Combien de cartes actives ?" · "Total des transactions ce mois ?" · "Retraits DAB par agence cette année ?"</em>
+      Bonjour ! Qu'est ce que vous voulez savoir ?<br>
     </div>
   </div>
 
   <!-- SUGGESTIONS RAPIDES -->
   <div class="suggestions">
-    <button class="suggestion-btn" onclick="askSuggestion(this)">Cartes actives</button>
-    <button class="suggestion-btn" onclick="askSuggestion(this)">Transactions approuvées ce mois</button>
-    <button class="suggestion-btn" onclick="askSuggestion(this)">Retraits DAB par agence</button>
-    <button class="suggestion-btn" onclick="askSuggestion(this)">Transactions e-commerce</button>
+    <button class="suggestion-btn" onclick="afficherSuggestions('transaction')">Transaction</button>
+    <button class="suggestion-btn" onclick="afficherSuggestions('atm')">ATM</button>
+    <button class="suggestion-btn" onclick="afficherSuggestions('compte')">Compte</button>
+    <button class="suggestion-btn" onclick="afficherSuggestions('agence')">Agence</button>
   </div>
 
   <!-- INPUT -->
@@ -259,7 +357,7 @@
 
 <script>
   // ============================================================
-  //  ⚠️ REMPLACEZ PAR VOTRE VRAIE URL NGROK + /api/chat
+  //  REMPLACEZ PAR VOTRE VRAIE URL NGROK + /api/chat
   //  Exemple : 'https://rewire-parsley-filled.ngrok-free.app/api/chat'   
   // ============================================================
   const BACKEND_URL = 'http://localhost:3000/api/chat';
@@ -342,7 +440,7 @@
       <div style="font-size:12px;color:#666;margin-bottom:4px;">Analyse en cours...</div>
       <div class="loading-dots"><span></span><span></span><span></span></div>
     `);
-
+ 
     try {
       const response = await fetch(BACKEND_URL, {
         method: 'POST',
@@ -352,19 +450,35 @@
         },
         body: JSON.stringify({ prompt })
       });
-
+ 
       loadingDiv.remove();
-
+ 
       if (!response.ok) {
         const err = await response.json().catch(() => ({ erreur: 'Erreur réseau' }));
         addMessage(`<span class="error-msg">❌ ${escapeHtml(err.erreur || 'Erreur inconnue')}</span>`);
         return;
       }
-
+ 
       const data = await response.json();
-
+ 
+      // Si le chatbot a un message poli (erreur gérée ou besoin de précision)
+      if (data.message) {
+        addMessage(`
+          <div style="display:flex;gap:8px;align-items:flex-start;">
+            <span style="font-size:18px;">💬</span>
+            <div>${escapeHtml(data.message)}</div>
+          </div>
+        `);
+        return;
+      }
+ 
       if (!data.succes) {
-        addMessage(`<span class="error-msg">❌ ${escapeHtml(data.erreur || 'Erreur inconnue')}</span>`);
+        addMessage(`
+          <div style="display:flex;gap:8px;align-items:flex-start;">
+            <span style="font-size:18px;">💬</span>
+            <div>Je n'ai pas compris. Pourriez-vous reformuler votre demande?</div>
+          </div>
+        `);
         return;
       }
 
@@ -372,9 +486,6 @@
       const resultHtml = formatData(data.data, data.nombreLignes);
       addMessage(`
         ${resultHtml}
-        <div class="sql-block">
-          <span class="sql-label">📊 REQUÊTE SQL GÉNÉRÉE</span>${escapeHtml(data.sql)}
-        </div>
       `);
 
     } catch (err) {
@@ -386,16 +497,155 @@
     input.focus();
   }
 
+
+
   // Clic sur une suggestion rapide
   function askSuggestion(btn) {
     document.getElementById('prompt-input').value = btn.textContent;
     sendMessage();
   }
 
+
+
+
+
+const SUGGESTIONS = {
+    transaction: [
+      "Quel est le taux de réussite des transactions ce mois ?",
+      "Quelles sont les principales causes de rejet des transactions ?"
+    ],
+    atm: [
+      "Quels ATM faut-il remplir en urgence ?",
+      "Quel est le classement des ATM par niveau de remplissage ?",
+      "Quel ATM a le solde le plus bas ?"
+    ],
+    compte: [
+      "Quelle est la répartition des comptes par segment client ?",
+      "Combien de comptes ont été créés cette année ?",
+      "Quel segment génère le plus de transactions ?"
+    ],
+    agence: [
+      "Quelles sont les 10 agences les plus performantes ?",
+      "Quel est le taux de rejet par agence ?",
+      "Quelle zone génère le plus de transactions cette année ?"
+    ]
+  };
+
+  function afficherSuggestions(categorie) {
+    const questions = SUGGESTIONS[categorie];
+    if (!questions) return;
+
+    const labels = {
+      transaction: '💳 Transactions',
+      atm:         '🏧 ATM',
+      compte:      '🏦 Comptes',
+      agence:      '🏢 Agences'
+    };
+
+    const messages = document.getElementById('messages');
+    const div = document.createElement('div');
+    div.className = 'message bot-msg';
+    div.innerHTML = `
+      <div style="margin-bottom:8px;font-weight:600;color:#00843D;">
+        ${labels[categorie]} — Choisissez une question :
+      </div>
+      ${questions.map(q => `
+        <div class="question-suggestion" onclick="poserQuestion('${q.replace(/'/g, "\\'")}')">
+          <span style="color:#00843D;margin-right:6px;">▶</span>${q}
+        </div>
+      `).join('')}
+    `;
+    messages.appendChild(div);
+    messages.scrollTop = messages.scrollHeight;
+  }
+
+  function poserQuestion(question) {
+    document.getElementById('prompt-input').value = question;
+    sendMessage();
+  }
+
+
   // Envoyer avec la touche Entrée
   document.getElementById('prompt-input').addEventListener('keypress', e => {
     if (e.key === 'Enter') sendMessage();
   });
+
+// ============================================================
+  //  DÉTECTION D'ANOMALIES — bannière automatique
+  // ============================================================
+  let banniereOuverte = true;
+ 
+  function toggleAlertes() {
+    const scroll  = document.getElementById('alerte-scroll');
+    const footer  = document.getElementById('alerte-footer');
+    const bouton  = document.querySelector('#alerte-header span:last-child');
+    banniereOuverte = !banniereOuverte;
+    scroll.style.display = banniereOuverte ? 'block' : 'none';
+    footer.style.display = banniereOuverte ? 'block' : 'none';
+    bouton.textContent   = banniereOuverte ? '▲ Réduire' : '▼ Voir détails';
+  }
+ 
+  async function actualiserAlertes() {
+    try {
+      const res  = await fetch(BACKEND_URL.replace('/api/chat', '/api/alertes'), {
+        headers: { 'ngrok-skip-browser-warning': '1' }
+      });
+      const data = await res.json();
+ 
+      const banner = document.getElementById('alerte-banner');
+      const titre  = document.getElementById('alerte-titre');
+      const liste  = document.getElementById('alerte-liste');
+      const footer = document.getElementById('alerte-footer');
+ 
+      // Masquer si statut chargement ou erreur DB
+      if (data.statut === 'erreur') {
+        banner.style.display = 'none';
+        return;
+      }
+ 
+      // Afficher la bannière
+      banner.style.display = 'flex';
+      banner.className     = data.statut === 'critique' ? 'critique'
+                           : data.statut === 'warning'  ? 'warning'
+                           : 'ok';
+ 
+      // Titre
+      if (data.statut === 'ok') {
+        titre.textContent = '✅ Aucune anomalie détectée';
+      } else {
+        const nb = data.nbCritiques + data.nbWarnings;
+        titre.textContent = `${data.statut === 'critique' ? '🔴' : '🟠'} ${nb} anomalie(s) détectée(s)`;
+      }
+ 
+      // Liste des alertes
+      if (banniereOuverte) {
+        liste.innerHTML = data.alertes.map(a => `
+          <div class="alerte-ligne">
+            <span>${escapeHtml(a.icone)}</span>
+            <div>
+              <strong>${escapeHtml(a.titre)}</strong>
+              <div class="detail">${escapeHtml(a.detail)}</div>
+            </div>
+          </div>
+        `).join('');
+ 
+        // Horodatage
+        if (data.horodatage) {
+          const heure = new Date(data.horodatage).toLocaleTimeString('fr-TN', { hour: '2-digit', minute: '2-digit' });
+          footer.textContent = `Dernière analyse : ${heure}`;
+        }
+      }
+ 
+    } catch (e) {
+      // Silencieux — pas d'affichage d'erreur pour les alertes
+      console.warn('Alertes non disponibles:', e.message);
+    }
+  }
+ 
+  // Actualisation toutes les 5 minutes + au chargement
+  actualiserAlertes();
+  setInterval(actualiserAlertes, 5 * 60 * 1000);
+
 </script>
 </body>
 </html>
