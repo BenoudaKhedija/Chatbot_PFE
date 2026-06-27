@@ -345,6 +345,11 @@
     <button class="suggestion-btn" onclick="afficherSuggestions('atm')">ATM</button>
     <button class="suggestion-btn" onclick="afficherSuggestions('compte')">Compte</button>
     <button class="suggestion-btn" onclick="afficherSuggestions('agence')">Agence</button>
+    <button class="suggestion-btn" 
+        onclick="nouvelleConversation()" 
+        style="border-color:#c0392b;color:#c0392b;">
+         Nouvelle conversation
+    </button>
   </div>
 
   <!-- INPUT -->
@@ -361,6 +366,7 @@
   //  Exemple : 'https://rewire-parsley-filled.ngrok-free.app/api/chat'   
   // ============================================================
   const BACKEND_URL = 'http://localhost:3000/api/chat';
+  let historiqueConversation = [];
 
   // Échapper le HTML pour éviter les injections XSS
   function escapeHtml(text) {
@@ -384,128 +390,238 @@
 
   // Formater les données en tableau HTML ou résultat simple
   function formatData(data, nombreLignes) {
-    if (!data || data.length === 0) {
-      return '<em>Aucun résultat trouvé.</em>';
-    }
-
-    const keys = Object.keys(data[0]);
-
-    // Résultat simple : 1 ligne, 1 colonne → affichage grand nombre
-    if (data.length === 1 && keys.length === 1) {
-      const val = data[0][keys[0]];
-      const label = keys[0].replace(/_/g, ' ');
-      return `
-        <div class="result-label">${escapeHtml(label)}</div>
-        <div class="result-simple">${escapeHtml(String(val))}</div>`;
-    }
-
-    // Résultat tabulaire
-    const maxRows = 10;
-    const rowsToShow = data.slice(0, maxRows);
-    let html = '<table class="result-table"><thead><tr>';
-    keys.forEach(k => { html += `<th>${escapeHtml(k.replace(/_/g, ' '))}</th>`; });
-    html += '</tr></thead><tbody>';
-    rowsToShow.forEach(row => {
-      html += '<tr>';
-      keys.forEach(k => {
-        const val = row[k] !== null && row[k] !== undefined ? row[k] : '—';
-        html += `<td>${escapeHtml(String(val))}</td>`;
-      });
-      html += '</tr>';
-    });
-    html += '</tbody></table>';
-
-    if (nombreLignes > maxRows) {
-      html += `<div class="more-rows">Affichage de ${maxRows} sur ${nombreLignes} résultats.</div>`;
-    } else {
-      html += `<div class="more-rows">${nombreLignes} résultat(s) trouvé(s).</div>`;
-    }
-    return html;
+  if (!data || data.length === 0) {
+    return '<em>Aucun résultat trouvé.</em>';
   }
+
+  const keys = Object.keys(data[0]);
+
+  // Résultat simple : 1 ligne, 1 colonne → grand nombre
+  if (data.length === 1 && keys.length === 1) {
+    const val   = data[0][keys[0]];
+    const label = keys[0].replace(/_/g, ' ');
+    return `
+      <div class="result-label">${escapeHtml(label)}</div>
+      <div class="result-simple">${escapeHtml(String(val))}</div>`;
+  }
+
+  // Stocker les données dans une variable globale pour "Voir plus"
+  const id = 'resultset_' + Date.now();
+  window._resultsets = window._resultsets || {};
+  window._resultsets[id] = { data, keys, affichees: 0 };
+
+  const html = `
+    <div id="liste_${id}"></div>
+    <div id="footer_${id}"></div>
+  `;
+
+  // Afficher les premières lignes après insertion dans le DOM
+  setTimeout(() => afficherLignes(id, 10), 0);
+
+  return html;
+}
+
+// Affiche les N prochaines lignes
+function afficherLignes(id, nbAAjouter) {
+  const rs     = window._resultsets[id];
+  const liste  = document.getElementById('liste_' + id);
+  const footer = document.getElementById('footer_' + id);
+  if (!rs || !liste) return;
+
+  const debut = rs.affichees;
+  const fin   = Math.min(debut + nbAAjouter, rs.data.length);
+
+  // Ajouter les nouvelles lignes
+  for (let index = debut; index < fin; index++) {
+    const row = rs.data[index];
+    const valeurs = rs.keys.map(k => {
+      const val   = row[k] !== null && row[k] !== undefined ? row[k] : '—';
+      const label = k.replace(/_/g, ' ');
+      return `<span style="color:#555;font-size:12px;">${escapeHtml(label)} :</span>
+              <strong>${escapeHtml(String(val))}</strong>`;
+    }).join('&nbsp;&nbsp;·&nbsp;&nbsp;');
+
+    const div = document.createElement('div');
+    div.style.cssText = `
+      display:flex; align-items:center; gap:6px;
+      padding:7px 10px; margin:3px 0; border-radius:8px;
+      background:${index % 2 === 0 ? '#f8fff8' : 'white'};
+      border:1px solid #e0ead8; font-size:13px; flex-wrap:wrap;
+    `;
+    div.innerHTML = `
+      <span style="
+        background:#00843D; color:white; border-radius:50%;
+        width:20px; height:20px; display:inline-flex;
+        align-items:center; justify-content:center;
+        font-size:11px; font-weight:700; flex-shrink:0;
+      ">${index + 1}</span>
+      ${valeurs}
+    `;
+    liste.appendChild(div);
+  }
+
+  rs.affichees = fin;
+
+  // Mettre à jour le footer
+  const restantes = rs.data.length - fin;
+  if (restantes > 0) {
+    footer.innerHTML = `
+      <div style="margin-top:6px;">
+        <span style="font-size:11px;color:#666;font-style:italic;">
+          ${fin} / ${rs.data.length} résultats affichés
+        </span>
+        <button onclick="afficherLignes('${id}', 10)" style="
+          margin-left:10px;
+          background:white; border:1px solid #00843D;
+          color:#00843D; border-radius:12px;
+          padding:3px 12px; font-size:11.5px;
+          cursor:pointer; transition:all 0.2s;
+        "
+        onmouseover="this.style.background='#00843D';this.style.color='white'"
+        onmouseout="this.style.background='white';this.style.color='#00843D'">
+          Voir 10 de plus ▼
+        </button>
+        <button onclick="afficherLignes('${id}', ${restantes})" style="
+          margin-left:6px;
+          background:white; border:1px solid #888;
+          color:#888; border-radius:12px;
+          padding:3px 12px; font-size:11.5px;
+          cursor:pointer; transition:all 0.2s;
+        "
+        onmouseover="this.style.background='#888';this.style.color='white'"
+        onmouseout="this.style.background='white';this.style.color='#888'">
+          Tout afficher (${restantes} restants)
+        </button>
+      </div>`;
+  } else {
+    footer.innerHTML = `
+      <div class="more-rows">${rs.data.length} résultat(s) au total.</div>`;
+  }
+}
+
+
 
   // Envoi du message principal
-  async function sendMessage() {
-    const input  = document.getElementById('prompt-input');
-    const btn    = document.getElementById('send-btn');
-    const prompt = input.value.trim();
-    if (!prompt) return;
+async function sendMessage() {
+  const input  = document.getElementById('prompt-input');
+  const btn    = document.getElementById('send-btn');
+  const prompt = input.value.trim();
+  if (!prompt) return;
 
-    // Afficher le message utilisateur
-    addMessage(escapeHtml(prompt), true);
-    input.value = '';
-    btn.disabled = true;
+  // Afficher le message utilisateur
+  addMessage(escapeHtml(prompt), true);
+  input.value = '';
+  btn.disabled = true;
 
-    // Afficher l'animation de chargement
-    const loadingDiv = addMessage(`
-      <div style="font-size:12px;color:#666;margin-bottom:4px;">Analyse en cours...</div>
-      <div class="loading-dots"><span></span><span></span><span></span></div>
-    `);
- 
-    try {
-      const response = await fetch(BACKEND_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': '1'   // ← obligatoire avec ngrok
-        },
-        body: JSON.stringify({ prompt })
-      });
- 
-      loadingDiv.remove();
- 
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({ erreur: 'Erreur réseau' }));
-        addMessage(`<span class="error-msg">❌ ${escapeHtml(err.erreur || 'Erreur inconnue')}</span>`);
-        return;
-      }
- 
-      const data = await response.json();
- 
-      // Si le chatbot a un message poli (erreur gérée ou besoin de précision)
-      if (data.message) {
-        addMessage(`
-          <div style="display:flex;gap:8px;align-items:flex-start;">
-            <span style="font-size:18px;">💬</span>
-            <div>${escapeHtml(data.message)}</div>
-          </div>
-        `);
-        return;
-      }
- 
-      if (!data.succes) {
-        addMessage(`
-          <div style="display:flex;gap:8px;align-items:flex-start;">
-            <span style="font-size:18px;">💬</span>
-            <div>Je n'ai pas compris. Pourriez-vous reformuler votre demande?</div>
-          </div>
-        `);
-        return;
-      }
+  // Ajouter la question à l'historique
+  historiqueConversation.push({ role: 'user', content: prompt });
+  if (prompt) {
+    historiquePrompts.unshift(prompt); // ajouter au début
+    if (historiquePrompts.length > 50) historiquePrompts.pop(); // max 50
+  }
+  // Afficher l'animation de chargement
+  const loadingDiv = addMessage(`
+    <div style="font-size:12px;color:#666;margin-bottom:4px;">Analyse en cours...</div>
+    <div class="loading-dots"><span></span><span></span><span></span></div>
+  `);
 
-      // Afficher résultat + SQL généré
-      const resultHtml = formatData(data.data, data.nombreLignes);
+  try {
+    const response = await fetch(BACKEND_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': '1'
+      },
+      body: JSON.stringify({
+        prompt,
+        historique: historiqueConversation  // ← envoyer l'historique
+      })
+    });
+
+    loadingDiv.remove();
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ erreur: 'Erreur réseau' }));
       addMessage(`
-        ${resultHtml}
+        <div style="display:flex;gap:8px;align-items:flex-start;">
+          <span style="font-size:18px;">💬</span>
+          <div>Je rencontre une difficulté temporaire. Veuillez réessayer.</div>
+        </div>
       `);
-
-    } catch (err) {
-      loadingDiv.remove();
-      addMessage(`<span class="error-msg">❌ Impossible de joindre le serveur.<br><small>${escapeHtml(err.message)}</small></span>`);
+      return;
     }
 
-    btn.disabled = false;
-    input.focus();
+    const data = await response.json();
+
+    // Si le chatbot a un message poli (erreur gérée ou besoin de précision)
+    if (data.message) {
+      addMessage(`
+        <div style="display:flex;gap:8px;align-items:flex-start;">
+          <span style="font-size:18px;">💬</span>
+          <div>${escapeHtml(data.message)}</div>
+        </div>
+      `);
+      // Ajouter le message à l'historique aussi
+      historiqueConversation.push({ role: 'assistant', content: data.message });
+      return;
+    }
+
+    if (!data.succes) {
+      addMessage(`
+        <div style="display:flex;gap:8px;align-items:flex-start;">
+          <span style="font-size:18px;">💬</span>
+          <div>Je n'ai pas compris. Pourriez-vous reformuler votre demande ?</div>
+        </div>
+      `);
+      return;
+    }
+
+    // Afficher résultat
+    const resultHtml = formatData(data.data, data.nombreLignes);
+    addMessage(resultHtml);
+
+    // Ajouter le SQL à l'historique pour que Gemini comprenne le contexte
+    if (data.sql) {
+      historiqueConversation.push({
+        role: 'assistant',
+        content: `Requête exécutée : ${data.sql}`
+      });
+    }
+
+    // Limiter l'historique à 6 échanges max
+    if (historiqueConversation.length > 12) {
+      historiqueConversation = historiqueConversation.slice(-12);
+    }
+
+  } catch (err) {
+    loadingDiv.remove();
+    addMessage(`
+      <div style="display:flex;gap:8px;align-items:flex-start;">
+        <span style="font-size:18px;">💬</span>
+        <div>Je rencontre une difficulté temporaire. Veuillez réessayer dans quelques instants.</div>
+      </div>
+    `);
   }
 
+  btn.disabled = false;
+  input.focus();
+}
 
+// Réinitialiser la conversation
+function nouvelleConversation() {
+  historiqueConversation = [];
+  const messages = document.getElementById('messages');
+  messages.innerHTML = `
+    <div class="message bot-msg">
+      Bonjour, qu'est ce que vous voulez savoir ?
+    </div>`;
+}
 
   // Clic sur une suggestion rapide
   function askSuggestion(btn) {
     document.getElementById('prompt-input').value = btn.textContent;
     sendMessage();
   }
-
-
 
 
 
@@ -520,7 +636,6 @@ const SUGGESTIONS = {
       "Quel ATM a le solde le plus bas ?"
     ],
     compte: [
-      "Quelle est la répartition des comptes par segment client ?",
       "Combien de comptes ont été créés cette année ?",
       "Quel segment génère le plus de transactions ?"
     ],
@@ -565,10 +680,36 @@ const SUGGESTIONS = {
   }
 
 
-  // Envoyer avec la touche Entrée
-  document.getElementById('prompt-input').addEventListener('keypress', e => {
-    if (e.key === 'Enter') sendMessage();
-  });
+  // Historique des prompts tapés (comme le terminal CMD)
+let historiquePrompts = [];
+let indexHistorique   = -1;
+
+document.getElementById('prompt-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    sendMessage();
+    indexHistorique = -1; // réinitialiser la position après envoi
+  }
+
+  // Flèche haut → prompt précédent
+  if (e.key === 'ArrowUp') {
+    e.preventDefault(); // empêche le curseur de bouger dans le champ
+    if (historiquePrompts.length === 0) return;
+    indexHistorique = Math.min(indexHistorique + 1, historiquePrompts.length - 1);
+    document.getElementById('prompt-input').value = historiquePrompts[indexHistorique];
+  }
+
+  // Flèche bas → prompt suivant
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    if (indexHistorique <= 0) {
+      indexHistorique = -1;
+      document.getElementById('prompt-input').value = '';
+      return;
+    }
+    indexHistorique--;
+    document.getElementById('prompt-input').value = historiquePrompts[indexHistorique];
+  }
+});
 
 // ============================================================
   //  DÉTECTION D'ANOMALIES — bannière automatique
