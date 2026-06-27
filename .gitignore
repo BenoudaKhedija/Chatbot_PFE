@@ -1,0 +1,5 @@
+echo ".env" > .gitignore
+echo "node_modules/" >> .gitignore
+echo "*.PNG" >> .gitignore
+echo "*.png" >> .gitignore
+echo "api key*" >> .gitignore
